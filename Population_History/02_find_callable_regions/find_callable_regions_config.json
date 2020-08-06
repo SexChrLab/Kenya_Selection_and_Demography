@@ -1,0 +1,6 @@
+{
+  "extract_stats_from_vcf_script": "/home/tphung3/softwares/tanya_repos/vcfhelper/extract_stats_from_vcf.py",
+  "compute_sum_DP_script": "/scratch/tphung3/Kenya_Selection_and_Demography/Population_History/02_find_callable_regions/compute_sumDP_per_chromosome.R",
+  "autosomes": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22"]
+
+}
