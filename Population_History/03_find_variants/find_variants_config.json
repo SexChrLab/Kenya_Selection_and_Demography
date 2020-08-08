@@ -1,0 +1,8 @@
+{
+  "variant_vcf_dir": "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/vcf/high_coverage/post_filtered",
+  "variant_vcf_from_amanda": "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/vcf/high_coverage/post_filtered/high_cov_allCHR.SNP1.vqsr.vcf.gz",
+  "autosomes": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22"],
+  "gatk4_path": "/home/tphung3/softwares/gatk-4.1.8.1/gatk",
+  "ref": "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/reference/amanda/hg38_all_chr.fa",
+  "neutral_regions_dir": "/scratch/tphung3/Turkana_Sex_Demography/04_find_neutral_regions/results/"
+}
