@@ -46,5 +46,20 @@
         1. `Rscript compute_DP_threshold.R`
         2. Genome-wide: mean DP is 259.4879.
         3. Threshold: filter out sites where DP is less than 50% of the mean. In other words, remove any sites where DP is less than 129.7439 (rounded to 130).
-        4. **Notes/To be considered: a more strigent threshold for DP?**
-    4. 
+        4. **Notes/To be considered: a more strigent threshold for DP (having an upper threshold for DP)?**
+    4. Filter sites based on DP threshold:
+        1. rule `find_callable_regions` (line 59)
+
+
+## 03_find_variants
+- From the vcf file for variants that Amanda sent, do the following:
+    1. Select "PASS" variants
+    2. Select variants based on DP and AN thresholds
+    3. Select variants in putatively neutral regions
+
+
+## 04_generate_sfs
+
+## Notes:
+- In the vcf files with all sites output, there are 110 individuals
+- In the vcf files with variants only after vqsr, there are 108 individuals
