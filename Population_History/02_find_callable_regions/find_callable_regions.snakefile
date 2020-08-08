@@ -7,7 +7,9 @@ rule all:
     input:
         expand("DP/chr{chrm_n}_DP.txt", chrm_n=config["autosomes"]),
         expand("DP/chr{chrm_n}_DP_sum.txt", chrm_n=config["autosomes"]),
-        "DP/autosomes_DP_sum.txt"
+        "DP/autosomes_DP_sum.txt",
+        expand(os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz.tbi"), chrm_n=config["autosomes"]),
+        expand("callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.vcf.gz", chrm_n=config["autosomes"])
 
 rule extract_DP:
     input:
@@ -43,3 +45,29 @@ rule concat_sum_DP:
         """
         cat {input} >> {output}
         """
+
+rule index_vcfs:
+    input:
+        os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz")
+    output:
+        os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz.tbi")
+    shell:
+        """
+        tabix -p vcf {input}
+        """
+
+rule find_callable_regions:
+    input:
+        ref = config["ref"],
+        vcf = os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz")
+    output:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.vcf.gz"
+    params:
+        gatk = config["gatk4_path"],
+        DP = 130.0
+    shell:
+        """{params.gatk} SelectVariants """
+        """-R {input.ref} """
+        """-V {input.vcf} """
+        """-O {output} """
+        """-select "DP >= {params.DP}" """
