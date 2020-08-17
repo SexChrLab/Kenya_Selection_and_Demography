@@ -1,191 +1,221 @@
 import os
 
+# Overall description: from the all sites VCF, filter to obtain variants that are high quality and in putatively neutral regions
+
 configfile: "find_variants_config.json"
 
 rule all:
-    input: #Amanda
-        "pass_variants/high_cov_chr22.SNP1.vqsr.recode_select.pass.biallelic.snps.vcf.gz"
-    input: # from all sites
-        "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter_select.pass_snp.vcf.gz"
     input:
-        expand(os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz"), chrm_n=config["autosomes"]),
-        expand(os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz.tbi"), chrm_n=config["autosomes"])
+        expand("biallelic_snps/chr{chrm_n}.all_high_cov.emit_all.biallelic_snps.vcf.gz", chrm_n=config["autosomes"]), #select_biallelic_snps
+        expand("count_num_variants/biallelic_snps/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count_number_of_biallelic_snps
+        expand("vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.vcf.gz", chrm_n=config["autosomes"]), #vqsr
+        expand("count_num_variants/post_vqsr/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count_number_of_snps_post_vqsr
+        expand("filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz.tbi", chrm_n=config["autosomes"]), #hwe, bgzip, tabix
+        expand("count_num_variants/post_hwe_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count_number_of_snps_post_hwe_filter
+        expand("count_num_variants/post_pilot_masks/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #pilot masks filter and count the number of variants
+        expand("count_num_variants/putatively_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]) #neutral regions filter and count the number of variants
 
-
-rule split_by_chromosomes:
+rule select_biallelic_snps:
     input:
-        config["variant_vcf_from_amanda"]
+        ref = config["ref"],
+        vcf = os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz")
     output:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf")
+        "biallelic_snps/chr{chrm_n}.all_high_cov.emit_all.biallelic_snps.vcf.gz"
     params:
-        chrm_n = "chr{chrm_n}",
-        out_basename = os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr")
+        gatk = config["gatk4_path"]
+    shell:
+        """{params.gatk} SelectVariants """
+        """-R {input.ref} """
+        """-V {input.vcf} """
+        """-O {output} """
+        """--restrict-alleles-to BIALLELIC """
+        """--select-type-to-include SNP """
+
+rule count_number_of_biallelic_snps:
+    input:
+        "biallelic_snps/chr{chrm_n}.all_high_cov.emit_all.biallelic_snps.vcf.gz"
+    output:
+        "count_num_variants/biallelic_snps/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
     shell:
         """
-        vcftools --gzvcf {input} --chr {params.chrm_n} --recode --recode-INFO-all --out {params.out_basename}
+        python {params.script} --vcf {input} --id {params.id} > {output}
         """
 
-rule bgzip_vcfs:
+rule gatk_variantrecalibrator:
     input:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf")
+        ref = config["ref"],
+        vcf = "biallelic_snps/chr{chrm_n}.all_high_cov.emit_all.biallelic_snps.vcf.gz",
+        hapmap = "/data/CEM/shared/public_data/validated_variant_resources/hapmap_3.3.hg38.vcf.gz",
+        omni = "/data/CEM/shared/public_data/validated_variant_resources/1000G_omni2.5.hg38.vcf.gz",
+        thousandG = "/data/CEM/shared/public_data/validated_variant_resources/1000G_phase1.snps.high_confidence.hg38.vcf.gz"
     output:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz")
+        recal = "vqsr/chr{chrm_n}/chr{chrm_n}_output.recal",
+        tranches = "vqsr/chr{chrm_n}/chr{chrm_n}_output.tranches"
+    params:
+        gatk = config["gatk4_path"]
+    shell:
+        """{params.gatk} --java-options "-Xmx16g" VariantRecalibrator """
+        """-R {input.ref} -V {input.vcf}  """
+        """--resource:hapmap,known=false,training=true,truth=true,prior=15.0 {input.hapmap} """
+        """--resource:omni,known=false,training=true,truth=false,prior=12.0 {input.omni} """
+        """--resource:1000G,known=false,training=true,truth=false,prior=10.0 {input.thousandG} """
+        """-an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR -an InbreedingCoeff """
+        """-mode SNP """
+        """-O {output.recal} """
+        """--tranches-file {output.tranches} """
+        """--max-gaussians 4 """
+
+rule gatk_applyvqsr:
+    input:
+        ref = config["ref"],
+        vcf = "biallelic_snps/chr{chrm_n}.all_high_cov.emit_all.biallelic_snps.vcf.gz",
+        tranches = "vqsr/chr{chrm_n}/chr{chrm_n}_output.tranches",
+        recal = "vqsr/chr{chrm_n}/chr{chrm_n}_output.recal"
+    output:
+        "vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.vcf.gz"
+    params:
+        gatk = config["gatk4_path"]
+    shell:
+        """{params.gatk} --java-options "-Xmx16g" ApplyVQSR """
+        """-R {input.ref} """
+        """-V {input.vcf} """
+        """-O {output} """
+        """--truth-sensitivity-filter-level 90.0 """
+        """--tranches-file {input.tranches} """
+        """--recal-file {input.recal} """
+        """-mode SNP """
+
+rule gatk_selectvariants:
+    input:
+        ref = config["ref"],
+        vcf = "vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.vcf.gz"
+    output:
+        "vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.vcf.gz"
+    params:
+        gatk = config["gatk4_path"]
+    shell:
+        """{params.gatk} --java-options "-Xmx16g" SelectVariants """
+        """-R {input.ref} """
+        """-V {input.vcf} """
+        """--exclude-filtered """
+        """-O {output} """
+
+rule count_number_of_snps_post_vqsr:
+    input:
+        "vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.vcf.gz"
+    output:
+        "count_num_variants/post_vqsr/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
+
+rule hwe_filter:
+    input:
+        "vqsr/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.vcf.gz"
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf"
+    params:
+        basename = "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe"
+    shell:
+        """
+        vcftools --gzvcf {input} --hwe 10e-6 --out {params.basename} --recode
+        """
+
+rule bgzip_vcfs_post_hwe_filter:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf"
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz"
     shell:
         """
         bgzip -c {input} > {output}
         """
 
-rule index_vcfs:
+rule index_vcfs_post_hwe_filter:
     input:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz")
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz"
     output:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz.tbi")
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz.tbi"
     shell:
         """
         tabix -p vcf {input}
         """
 
-rule select_pass_variant:
+rule count_number_of_snps_post_hwe_filter:
     input:
-        os.path.join(config["variant_vcf_dir"], "high_cov_chr22.SNP1.vqsr.recode.vcf.gz")
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz"
     output:
-        "pass_variants/high_cov_chr22.SNP1.vqsr.recode_select.pass.vcf"
+        "count_num_variants/post_hwe_filter/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
     shell:
         """
-        python /home/tphung3/softwares/tanya_repos/vcfhelper/obtain_pass_variants.py --input_vcf {input} --output_vcf {output}
+        python {params.script} --vcf {input} --id {params.id} > {output}
         """
 
-rule select_biallelic_snps:
+rule pilot_masks_filter:
     input:
         ref = config["ref"],
-        vcf = "pass_variants/high_cov_chr22.SNP1.vqsr.recode_select.pass.vcf.gz"
+        vcf = "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz",
+        interval = "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/reference/1000_genomes_pilot_masks/20160622.allChr.pilot_mask.chr{chrm_n}.bed"
     output:
-        "pass_variants/high_cov_chr22.SNP1.vqsr.recode_select.pass.biallelic.snps.vcf.gz"
-    params:
-        gatk = config["gatk4_path"]
-    shell:
-        """{params.gatk} SelectVariants """
-        """-R {input.ref} """
-        """-V {input.vcf} """
-        """--select-type-to-include SNP """
-        """--restrict-alleles-to BIALLELIC """
-        """-O {output} """
-
-# rule select_pass_variants:
-#     input:
-#         ref = config["ref"],
-#         vcf = os.path.join(config["variant_vcf_dir"], "high_cov_chr{chrm_n}.SNP1.vqsr.recode.vcf.gz")
-#     output:
-#         "pass_variants/high_cov_chr{chrm_n}.SNP1.vqsr.recode.biallelic.pass.vcf.gz"
-#     params:
-#         gatk = config["gatk4_path"]
-#     shell:
-#         """{params.gatk} SelectVariants """
-#         """-R {input.ref} """
-#         """-V {input.vcf} """
-#         """-O {output} """
-#         """--exclude-filtered """
-#         """--restrict-alleles-to BIALLELIC """
-#
-# rule filter_by_DP:
-#     input:
-#         ref = config["ref"],
-#         vcf = "pass_variants/high_cov_chr{chrm_n}.SNP1.vqsr.recode.biallelic.pass.vcf.gz"
-#     output:
-#         "pass_variants/high_cov_chr{chrm_n}.SNP1.vqsr.recode.biallelic.pass.filtered_DP.vcf.gz"
-#     params:
-#         gatk = config["gatk4_path"],
-#         DP = 130.0
-#     shell:
-#         """{params.gatk} SelectVariants """
-#         """-R {input.ref} """
-#         """-V {input.vcf} """
-#         """-O {output} """
-#         """-select "DP >= {params.DP}" """
-#
-# rule select_variants_in_neutral_regions:
-#     input:
-#         ref = config["ref"],
-#         vcf = "pass_variants/high_cov_chr{chrm_n}.SNP1.vqsr.recode.biallelic.pass.filtered_DP.vcf.gz",
-#         neutral = os.path.join(config["neutral_regions_dir"], "chr{chrm_n}/chr{chrm_n}_putatively_neutral_regions_112719.bed")
-#     output:
-#         "pass_variants/high_cov_chr{chrm_n}.SNP1.vqsr.recode.biallelic.pass.filtered_DP_neutral.vcf.gz"
-#     params:
-#         gatk = config["gatk4_path"]
-#     shell:
-#         """{params.gatk} SelectVariants """
-#         """-R {input.ref} """
-#         """-V {input.vcf} """
-#         """-O {output} """
-#         """--intervals {input.neutral} """
-
-# ---------------
-# Troubleshooting
-# ---------------
-
-# Hard filter from all sites output
-rule select_variants:
-    input:
-        ref = config["ref"],
-        vcf = "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/vcf/high_coverage_all_sites/chr22.all_high_cov.emit_all.vcf.gz"
-    output:
-        "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants.vcf.gz"
-    params:
-        gatk = config["gatk4_path"]
-    shell:
-        """{params.gatk} SelectVariants """
-        """-R {input.ref} """
-        """-V {input.vcf} """
-        """-O {output} """
-        """--restrict-alleles-to BIALLELIC """
-
-rule hard_filter_chr22:
-    input:
-        ref = config["ref"],
-        vcf = "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants.vcf.gz"
-    output:
-        "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter.vcf.gz"
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.vcf.gz"
     params:
         gatk = config["gatk4_path"]
     shell:
         """{params.gatk} VariantFiltration """
         """-R {input.ref} """
         """-V {input.vcf} """
-        """-filter "QD < 2.0" --filter-name "QD2" """
-        """-filter "QUAL < 30.0" --filter-name "QUAL30" """
-        """-filter "SOR > 3.0" --filter-name "SOR3" """
-        """-filter "FS > 60.0" --filter-name "FS60" """
-        """-filter "MQ < 40.0" --filter-name "MQ40" """
-        """-filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" """
-        """-filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" """
+        """-L {input.interval} """
         """-O {output} """
 
-rule select_pass_variants_post_hard_filter_chr22:
+rule count_number_of_snps_post_masks_filter:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.vcf.gz"
+    output:
+        "count_num_variants/post_pilot_masks/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
+
+rule neutral_regions_filter:
     input:
         ref = config["ref"],
-        vcf = "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter.vcf.gz"
+        vcf = "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.vcf.gz",
+        interval = os.path.join(config["neutral_regions_dir"], "chr{chrm_n}/chr{chrm_n}_putatively_neutral_regions_112719.bed")
     output:
-        "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter_select.pass.vcf.gz"
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.neutral.vcf.gz"
     params:
         gatk = config["gatk4_path"]
     shell:
-        """{params.gatk} SelectVariants """
+        """{params.gatk} VariantFiltration """
         """-R {input.ref} """
         """-V {input.vcf} """
+        """-L {input.interval} """
         """-O {output} """
-        """--exclude-filtered """
 
-rule select_pass_variants_post_hard_filter_snp_chr22:
+
+rule count_number_of_snps_post_neutral_regions_filter:
     input:
-        ref = config["ref"],
-        vcf = "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter_select.pass.vcf.gz"
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.neutral.vcf.gz"
     output:
-        "pass_variants/chr22.all_high_cov.emit_all_select.biallelic.variants_hard.filter_select.pass_snp.vcf.gz"
+        "count_num_variants/putatively_neutral/chr{chrm_n}_num_variants.txt"
     params:
-        gatk = config["gatk4_path"]
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
     shell:
-        """{params.gatk} SelectVariants """
-        """-R {input.ref} """
-        """-V {input.vcf} """
-        """--select-type-to-include SNP """
-        """-O {output} """
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
