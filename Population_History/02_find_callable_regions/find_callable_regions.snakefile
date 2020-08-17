@@ -9,7 +9,8 @@ rule all:
         expand("DP/chr{chrm_n}_DP_sum.txt", chrm_n=config["autosomes"]),
         "DP/autosomes_DP_sum.txt",
         expand(os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz.tbi"), chrm_n=config["autosomes"]),
-        expand("callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.vcf.gz", chrm_n=config["autosomes"])
+        expand("callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.vcf.gz", chrm_n=config["autosomes"]),
+        expand("callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz.tbi", chrm_n=config["autosomes"]) #filter by AN, bgzip and tabix
 
 rule extract_DP:
     input:
@@ -56,7 +57,7 @@ rule index_vcfs:
         tabix -p vcf {input}
         """
 
-rule find_callable_regions:
+rule DP_filter:
     input:
         ref = config["ref"],
         vcf = os.path.join(config["all_sites_vcf_dir"], "chr{chrm_n}.all_high_cov.emit_all.vcf.gz")
@@ -71,3 +72,35 @@ rule find_callable_regions:
         """-V {input.vcf} """
         """-O {output} """
         """-select "DP >= {params.DP}" """
+
+rule AN_filter:
+    input:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.vcf.gz"
+    output:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf"
+    params:
+        basename = "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN"
+    shell:
+        """
+        vcftools --gzvcf {input} --max-missing-count 55 --out {params.basename} --recode
+        """
+
+rule bgzip_vcfs_post_filter:
+    input:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf"
+    output:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz"
+    shell:
+        """
+        bgzip -c {input} > {output}
+        """
+
+rule index_vcfs_post_filter:
+    input:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz"
+    output:
+        "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz.tbi"
+    shell:
+        """
+        tabix -p vcf {input}
+        """
