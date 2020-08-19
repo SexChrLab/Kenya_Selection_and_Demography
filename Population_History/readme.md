@@ -65,40 +65,40 @@ python tabulate_foldedSFS.py --num_bin 110 --directory sfs/ --out_filename sfs/a
 ```
 
 ## 05_demographic_inference
+### Without including monomorphic sites
 1. Convert SFS to dadi file format
-  ```
-  grep -v af_bin ../05_generate_sfs/results/chrX/chrX.females.sfs.txt > ../05_generate_sfs/results/chrX/chrX.females.sfs.clean.txt
-
-  python convert_sfs_to_dadi_format.py --num_bin 93 --folded_or_unfolded folded --population_name Turkana --sfs_filename ../05_generate_sfs/results/chrX/chrX.females.sfs.clean.txt --num_individuals 46 --out_filename chrX_females_sfs_02082020_dadi_format.sfs
-  ```
-
-  ```
-  grep -v af_bin ../05_generate_sfs/results/chrX/chrX.males.sfs.txt > ../05_generate_sfs/results/chrX/chrX.males.sfs.clean.txt
-
-  python convert_sfs_to_dadi_format.py --num_bin 73 --folded_or_unfolded folded --population_name Turkana --sfs_filename ../05_generate_sfs/results/chrX/chrX.males.sfs.clean.txt --num_individuals 36 --out_filename chrX_males_sfs_03052020_dadi_format.sfs
-  ```
+```
+python ~/softwares/tanya_repos/dadi_tutorial/convert_sfs_to_dadi_format.py --num_bin 221 --folded_or_unfolded folded --population_name Turkana --sfs_filename ../04_generate_sfs/sfs/autosomes_sfs.txt --num_individuals 110 --out_filename autosomes_sfs_dadi_format.sfs --num_monomorphic 0 --include_monomorphic no
+```
 
 2. Run dadi
-  1. chrX females
-  ```
-  for i in {1..50}; do python 1D.2Epoch.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 10526249 --sfs chrX_females_sfs_02082020_dadi_format.sfs --outdir 2Epoch_chrX_females_run_${i}; done;
-  ```
+```
+for i in {1..50}; do python ~/softwares/tanya_repos/dadi_tutorial/1D.2Epoch.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 215622954 --sfs autosomes_sfs_dadi_format.sfs --outdir 1D_2Epoch/1D_2Epoch_autosomes_run_${i}; done;
+```
 
-  2. chrX males
-  ```
+```
+python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_base_directory 1D_2Epoch_autosomes --file_basename Turkana.dadi.inference.1D.2Epoch.runNum --out_filename Turkana.dadi.inference.1D.2Epoch.autosomes.50.runs.csv --out_filename_sorted Turkana.dadi.inference.1D.2Epoch.autosomes.50.runs.sorted.csv
+```
 
-  ```
+```
+python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_2Epoch_autosomes_run_19/Turkana.dadi.inference.1D.2Epoch.runNum.19.expSFS --num_individuals 101 --theta 207120.395651646 --out_filename 1D_2Epoch_autosomes_run_19/Turkana.dadi.inference.1D.2Epoch.runNum.19.expSFS.normalized.by.theta
+```
 
-  ```
-  python merge_out.py --directory . --run_base_directory 2Epoch_chrX_males --file_basename Turkana.dadi.inference.1D.2Epoch.runNum --out_filename Turkana.dadi.inference.1D.2Epoch.chrX.males.50.runs.csv --out_filename_sorted Turkana.dadi.inference.1D.2Epoch.chrX.males.50.runs.sorted.csv
-  ```
+### With including monomorphic sites
+1. Convert SFS to dadi file format
+```
+python ~/softwares/tanya_repos/dadi_tutorial/convert_sfs_to_dadi_format.py --num_bin 221 --folded_or_unfolded folded --population_name Turkana --sfs_filename ../04_generate_sfs/sfs/autosomes_sfs.txt --num_individuals 110 --out_filename autosomes_sfs_dadi_format_include_monomorphic.sfs --num_monomorphic 211484690  --include_monomorphic yes
+```
 
-  ```
-  python parse_dadi_expsfs.py --dadi_expsfs 2Epoch_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS --num_individuals 18 --theta 9028.43395222795 --out_filename 2Epoch_chrX_males_run_3_sfs_normalized_by_theta.txt
-  ```
+2. Run dadi
+```
+for i in {1..50}; do python ~/softwares/tanya_repos/dadi_tutorial/1D.2Epoch.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 213127407 --sfs autosomes_sfs_dadi_format_include_monomorphic.sfs --outdir 1D_2Epoch_include_monomorphic/1D_2Epoch_autosomes_run_${i}; done;
+```
 
+```
+python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_base_directory 1D_2Epoch_autosomes --file_basename Turkana.dadi.inference.1D.2Epoch.runNum --out_filename Turkana.dadi.inference.1D.2Epoch.autosomes.50.runs.csv --out_filename_sorted Turkana.dadi.inference.1D.2Epoch.autosomes.50.runs.sorted.csv
+```
 
-
-## Notes:
-- In the vcf files with all sites output, there are 110 individuals
-- In the vcf files with variants only after vqsr, there are 108 individuals
+```
+python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS --num_individuals 110 --theta 207137.229608562 --out_filename 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS.normalized.by.theta
+```
