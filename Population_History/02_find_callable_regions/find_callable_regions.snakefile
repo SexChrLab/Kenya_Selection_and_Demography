@@ -153,18 +153,16 @@ rule neutral_regions_filter:
         vcf = "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz",
         interval = os.path.join(config["neutral_regions_dir"], "chr{chrm_n}/chr{chrm_n}_putatively_neutral_regions_112719.bed")
     output:
-        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral.recode.vcf"
-    params:
-        basename = "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral"
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral.vcf"
     shell:
         """
-        vcftools --gzvcf {input.vcf} --bed {input.interval} --out {params.basename} --recode
+        bcftools view --regions-file {input.interval} {input.vcf} -output-type z --output-file {output}
         """
 
 
 rule count_number_of_sites_post_neutral_regions_filter:
     input:
-        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral.recode.vcf"
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral.vcf"
     output:
         "count_num_sites/putatively_neutral/chr{chrm_n}_num_sites.txt"
     params:
