@@ -85,12 +85,27 @@ python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 
 ```
 
 ### With including monomorphic sites
-1. Convert SFS to dadi file format
+- Convert SFS to dadi file format
 ```
 python ~/softwares/tanya_repos/dadi_tutorial/convert_sfs_to_dadi_format.py --num_bin 221 --folded_or_unfolded folded --population_name Turkana --sfs_filename ../04_generate_sfs/sfs/autosomes_sfs.txt --num_individuals 110 --out_filename autosomes_sfs_dadi_format_include_monomorphic.sfs --num_monomorphic 211484690  --include_monomorphic yes
 ```
 
-2. Run dadi
+#### 1D 1Epoch model
+- Run dadi
+```
+for i in {1..50}; do python ~/softwares/tanya_repos/dadi_tutorial/1D.2Epoch.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 213127407 --sfs autosomes_sfs_dadi_format_include_monomorphic.sfs --outdir 1D_2Epoch_include_monomorphic/1D_2Epoch_autosomes_run_${i}; done;
+```
+
+```
+python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_base_directory 1D_1Epoch_autosomes --file_basename Turkana.dadi.inference.1D.1Epoch.runNum --out_filename Turkana.dadi.inference.1D.1Epoch.autosomes.50.runs.csv --out_filename_sorted Turkana.dadi.inference.1D.1Epoch.autosomes.50.runs.sorted.csv
+```
+
+```
+python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS --num_individuals 110 --theta 207137.229608562 --out_filename 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS.normalized.by.theta
+```
+
+#### 1D 2Epoch model
+- Run dadi
 ```
 for i in {1..50}; do python ~/softwares/tanya_repos/dadi_tutorial/1D.2Epoch.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 213127407 --sfs autosomes_sfs_dadi_format_include_monomorphic.sfs --outdir 1D_2Epoch_include_monomorphic/1D_2Epoch_autosomes_run_${i}; done;
 ```
@@ -101,4 +116,18 @@ python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_ba
 
 ```
 python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS --num_individuals 110 --theta 207137.229608562 --out_filename 1D_2Epoch_autosomes_run_3/Turkana.dadi.inference.1D.2Epoch.runNum.3.expSFS.normalized.by.theta
+```
+
+#### 1D Bottleneck model
+- Run dadi
+```
+for i in {1..50}; do python ~/softwares/tanya_repos/dadi_tutorial/1D.1Bottleneck.dadi.py --runNum ${i} --pop Turkana --mu 1.5e-8 --L 213127407 --sfs autosomes_sfs_dadi_format_include_monomorphic.sfs --outdir 1D_1Bottleneck_include_monomorphic/1D_1Bottleck_autosomes_run_${i}; done;
+```
+
+```
+python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_base_directory 1D_1Bottleneck_autosomes --file_basename Turkana.dadi.inference.1D.1Bottleneck.runNum --out_filename Turkana.dadi.inference.1D.1Bottleneck.autosomes.50.runs.csv --out_filename_sorted Turkana.dadi.inference.1D.1Bottleneck.autosomes.50.runs.sorted.csv
+```
+
+```
+ python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_1Bottleneck_autosomes_run_39/Turkana.dadi.inference.1D.1Bottleneck.runNum.39.expSFS --num_individuals 110 --theta 318377585.208534 --out_filename 1D_1Bottleneck_autosomes_run_39/Turkana.dadi.inference.1D.1Bottleneck.runNum.39.expSFS.normalized.by.theta
 ```
