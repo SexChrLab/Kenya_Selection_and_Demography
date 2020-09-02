@@ -13,7 +13,9 @@ rule all:
         expand("filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.vcf.gz.tbi", chrm_n=config["autosomes"]), #hwe, bgzip, tabix
         expand("count_num_variants/post_hwe_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count_number_of_snps_post_hwe_filter
         expand("count_num_variants/post_pilot_masks/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #pilot masks filter and count the number of variants
-        expand("count_num_variants/putatively_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]) #neutral regions filter and count the number of variants
+        expand("count_num_variants/putatively_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #neutral regions filter and count the number of variants
+        expand("count_num_variants/nre_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #nre neutral regions filter and count the number of variants
+        "filtered_variants/autosomes.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
 
 rule select_biallelic_snps:
     input:
@@ -190,6 +192,9 @@ rule count_number_of_snps_post_masks_filter:
         python {params.script} --vcf {input} --id {params.id} > {output}
         """
 
+# ----------------------------------
+# Tanya's putatively neutral regions
+# ----------------------------------
 rule neutral_regions_filter:
     input:
         ref = config["ref"],
@@ -219,3 +224,53 @@ rule count_number_of_snps_post_neutral_regions_filter:
         """
         python {params.script} --vcf {input} --id {params.id} > {output}
         """
+
+# -------------------
+# NRE neutral regions
+# -------------------
+rule nre_neutral_regions_filter:
+    input:
+        ref = config["ref"],
+        vcf = "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.vcf.gz",
+        interval = os.path.join(config["nre_neutral_regions_dir"], "neutral_regions_nre_autosomes_liftoverhg38_chr{chrm_n}.bed")
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
+    params:
+        gatk = config["gatk4_path"]
+    shell:
+        """{params.gatk} VariantFiltration """
+        """-R {input.ref} """
+        """-V {input.vcf} """
+        """-L {input.interval} """
+        """-O {output} """
+
+
+rule count_number_of_snps_post_nre_neutral_regions_filter:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
+    output:
+        "count_num_variants/nre_neutral/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
+
+# ---------------
+# Concat variants
+# ---------------
+rule concat_vcfs_autosomes:
+    input:
+        vcfs = expand(
+			"filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz", chrm_n=config["autosomes"])
+    output:
+        "filtered_variants/autosomes.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
+    run:
+        variant_files = []
+        for i in input.vcfs:
+        	variant_files.append("-I " + i)
+        variant_files = " ".join(variant_files)
+        shell(
+        	"""picard MergeVcfs {variant_files} -O {output} """)

@@ -14,7 +14,8 @@ rule all:
         expand("count_num_sites/all_sites/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count number of all_sites
         expand("count_num_sites/post_DP_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count number of sites post DP filter
         expand("count_num_sites/post_AN_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count number of sites post AN filter
-        expand("count_num_sites/putatively_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]) #filter for putatively neutral and count number of sites after neutral regions filtering
+        expand("count_num_sites/putatively_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]), #filter for putatively neutral and count number of sites after neutral regions filtering
+        expand("count_num_sites/nre_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]) #filter for nre neutral and count the number of sites after neutral regions filtering
 
 rule extract_DP:
     input:
@@ -148,6 +149,9 @@ rule count_number_of_sites_post_AN_filter:
         python {params.script} --vcf {input} --id {params.id} > {output}
         """
 
+# ----------------------------------
+# Tanya's putatively neutral regions
+# ----------------------------------
 rule neutral_regions_filter:
     input:
         vcf = "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz",
@@ -165,6 +169,34 @@ rule count_number_of_sites_post_neutral_regions_filter:
         "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.neutral.vcf"
     output:
         "count_num_sites/putatively_neutral/chr{chrm_n}_num_sites.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
+
+# -------------------
+# NRE neutral regions
+# -------------------
+rule nre_neutral_regions_filter:
+    input:
+        vcf = "callable_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.vcf.gz",
+        interval = os.path.join(config["nre_neutral_regions_dir"], "neutral_regions_nre_autosomes_liftoverhg38_chr{chrm_n}.bed")
+    output:
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.vcf"
+    shell:
+        """
+        bcftools view --regions-file {input.interval} {input.vcf} -output-type z --output-file {output}
+        """
+
+
+rule count_number_of_sites_post_nre_neutral_regions_filter:
+    input:
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.vcf"
+    output:
+        "count_num_sites/nre_neutral/chr{chrm_n}_num_sites.txt"
     params:
         script = config["calc_num_sites_in_vcf_script"],
         id = "{chrm_n}"

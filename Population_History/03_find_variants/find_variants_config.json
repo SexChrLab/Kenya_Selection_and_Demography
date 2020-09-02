@@ -4,5 +4,6 @@
   "gatk4_path": "/home/tphung3/softwares/gatk-4.1.8.1/gatk",
   "ref": "/data/CEM/wilsonlab/from_collaborators/princeton_kenya/reference/amanda/hg38_all_chr.fa",
   "neutral_regions_dir": "/scratch/tphung3/Turkana_Sex_Demography/04_find_neutral_regions/results/",
-  "calc_num_sites_in_vcf_script": "/home/tphung3/softwares/tanya_repos/vcfhelper/calc_num_site_in_vcf.py"
+  "calc_num_sites_in_vcf_script": "/home/tphung3/softwares/tanya_repos/vcfhelper/calc_num_site_in_vcf.py",
+  "nre_neutral_regions_dir": "/scratch/tphung3/Kenya_Selection_and_Demography/Population_History/01_find_neutral_regions/download/"
 }

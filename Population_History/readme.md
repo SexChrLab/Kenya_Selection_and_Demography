@@ -1,4 +1,5 @@
 ## 01_find_neutral_regions
+### Tanya definition
 - The (putatively) neutral regions are defined as:
     1. Outside of genic regions, conserved regions, CpG islands, and repeats
     2. Bscores are greater or equal to 0.9
@@ -24,6 +25,58 @@
         - Lift over the coordinates for bscores from hg19 to GRCh38
 
 3. Create bed files representing putatively neutral regions using bedtools
+### Use NRE program
+- Link: http://nre.cb.bscb.cornell.edu/nre/run.html
+- Note that this program is relatively old and has not been updated since 01/2013
+- Parameters:
+  1. Select Regions to Exclude:
+    1. Known Genes
+    2. Segmental Duplications
+    3. Gene Bounds
+    4. CNVs
+    5. Spliced ESTs
+    6. Self Chain
+  2. Parameters:
+    1. Minimum region size (bp): 200
+    2. Distance to nearest gene: 0.4cM
+    3. Recombination rate (cM/Mb): 0.9
+    4. Genetic Map: HapMap
+    5. Human Diversity: YRI
+    6. Individuals: All
+    7. Mask: Strict
+    8. Min BG selection coefficient: 0.95
+    9. Chromosomes: 1-22 (note that when running all 22 chromosomes it stopped at chr9, so need to run it chromosome by chromosome)
+  3. Select Regions for which to Calculate % Overlap
+    1. Simple Repeats
+    2. Repeat Masker v3.27
+    3. 46 Way Conserved - Plac Mammal
+- Download output from NRE and concat:
+  ```
+  for i in {1..22}; do
+  cat neutral_regions_nre_chr${i}.tsv >> neutral_regions_nre_autosomes.tsv
+  done
+  ```
+
+- Convert to bed file format:
+  ```
+  grep -v chrom neutral_regions_nre_autosomes.tsv | awk '{print$1"\t"$2"\t"$3}' > neutral_regions_nre_autosomes_clean.bed
+  ```
+- Lift over to GRCh38 using UCSC liftover
+  - https://genome.ucsc.edu/cgi-bin/hgLiftOver
+  - Original Genome: Human
+  - Original Assembly: Feb. 2009 (GRCh37/hg19)
+  - New Genome: Human
+  - New Assembly: Dec. 2013 (GRCh38/hg38)
+  - Everything else is set to default
+  - Successfully converted 2668 records. Conversion failed on 1 record.
+  - Output file: `neutral_regions_nre_autosomes_liftoverhg38.bed`
+  - There are 45,118,761 sites that are neutral from chr1-chr22 (as compared to 215,622,954 from my filtering)
+  - Seperate for each chromosome:
+    ```
+    for i in {1..22}; do
+    grep -w "chr${i}" neutral_regions_nre_autosomes_liftoverhg38.bed > neutral_regions_nre_autosomes_liftoverhg38_chr${i}.bed
+    done;
+    ```
 
 ## 02_find_callable_regions
 - The callable regions are defined as:
