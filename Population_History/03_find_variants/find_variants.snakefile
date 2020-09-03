@@ -15,7 +15,10 @@ rule all:
         expand("count_num_variants/post_pilot_masks/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #pilot masks filter and count the number of variants
         expand("count_num_variants/putatively_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #neutral regions filter and count the number of variants
         expand("count_num_variants/nre_neutral/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #nre neutral regions filter and count the number of variants
-        "filtered_variants/autosomes.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
+        "filtered_variants/autosomes.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz",
+        expand("filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz", chrm_n=config["autosomes"]), #remove A1 and A11
+        expand("filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz.tbi", chrm_n=config["autosomes"]), #remove A1 and A11
+        expand("count_num_variants/post_remove_individuals/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"])
 
 rule select_biallelic_snps:
     input:
@@ -274,3 +277,51 @@ rule concat_vcfs_autosomes:
         variant_files = " ".join(variant_files)
         shell(
         	"""picard MergeVcfs {variant_files} -O {output} """)
+
+# -----------------
+# Remove A7 and A11
+# -----------------
+rule remove_individuals:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.vcf.gz"
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf"
+    params:
+        basename = "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11"
+    shell:
+        """
+        vcftools --gzvcf {input} --remove-indv A7 --remove-indv A11 --out {params.basename} --recode
+        """
+
+rule bgzip_vcfs_post_remove_individuals:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf"
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz"
+    shell:
+        """
+        bgzip -c {input} > {output}
+        """
+
+rule index_vcfs_post_remove_individuals:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz"
+    output:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz.tbi"
+    shell:
+        """
+        tabix -p vcf {input}
+        """
+
+rule count_number_of_snps_post_remove_individuals:
+    input:
+        "filtered_variants/chr{chrm_n}/chr{chrm_n}.gatk.called.vqsr.select.variants.hwe.recode.pilot.masks.nre.neutral.rmA7A11.recode.vcf.gz"
+    output:
+        "count_num_variants/post_remove_individuals/chr{chrm_n}_num_variants.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
