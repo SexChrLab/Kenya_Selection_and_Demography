@@ -15,7 +15,8 @@ rule all:
         expand("count_num_sites/post_DP_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count number of sites post DP filter
         expand("count_num_sites/post_AN_filter/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]), #count number of sites post AN filter
         expand("count_num_sites/putatively_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]), #filter for putatively neutral and count number of sites after neutral regions filtering
-        expand("count_num_sites/nre_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]) #filter for nre neutral and count the number of sites after neutral regions filtering
+        expand("count_num_sites/nre_neutral/chr{chrm_n}_num_sites.txt", chrm_n=config["autosomes"]), #filter for nre neutral and count the number of sites after neutral regions filtering
+        expand("count_num_sites/post_remove_individuals/chr{chrm_n}_num_variants.txt", chrm_n=config["autosomes"]) #remove A7 and A11
 
 rule extract_DP:
     input:
@@ -197,6 +198,34 @@ rule count_number_of_sites_post_nre_neutral_regions_filter:
         "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.vcf"
     output:
         "count_num_sites/nre_neutral/chr{chrm_n}_num_sites.txt"
+    params:
+        script = config["calc_num_sites_in_vcf_script"],
+        id = "{chrm_n}"
+    shell:
+        """
+        python {params.script} --vcf {input} --id {params.id} > {output}
+        """
+
+# -----------------
+# Remove A7 and A11
+# -----------------
+rule remove_individuals:
+    input:
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.vcf"
+    output:
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.rmA7A11.recode.vcf"
+    params:
+        basename = "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.rmA7A11"
+    shell:
+        """
+        vcftools --vcf {input} --remove-indv A7 --remove-indv A11 --out {params.basename} --recode
+        """
+
+rule count_number_of_snps_post_remove_individuals:
+    input:
+        "neutral_regions/chr{chrm_n}.all_high_cov.emit_all.filtered_DP.AN.recode.nre.neutral.rmA7A11.recode.vcf"
+    output:
+        "count_num_sites/post_remove_individuals/chr{chrm_n}_num_variants.txt"
     params:
         script = config["calc_num_sites_in_vcf_script"],
         id = "{chrm_n}"
