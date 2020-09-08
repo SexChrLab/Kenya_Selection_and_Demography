@@ -227,7 +227,7 @@ python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 
 #### 1D Bottleneck model
 - Run dadi
 ```
-
+sbatch run_1D_1Bottleneck.sh
 ```
 
 ```
@@ -235,5 +235,5 @@ python ~/softwares/tanya_repos/dadi_tutorial/merge_out.py --directory . --run_ba
 ```
 
 ```
-
+python ~/softwares/tanya_repos/dadi_tutorial/parse_dadi_expsfs.py --dadi_expsfs 1D_1Bottleneck_autosomes_run_20/Turkana.dadi.inference.1D.1Bottleneck.runNum.20..expSFS --num_individuals 108 --theta 14673552.2825813 --out_filename 1D_1Bottleneck_autosomes_run_20/Turkana.dadi.inference.1D.1Bottleneck.runNum.20.expSFS.normalized.by.theta
 ```
